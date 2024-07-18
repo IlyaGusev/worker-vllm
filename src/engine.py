@@ -11,6 +11,7 @@ from vllm import AsyncLLMEngine, AsyncEngineArgs
 from vllm.entrypoints.openai.serving_chat import OpenAIServingChat
 from vllm.entrypoints.openai.serving_completion import OpenAIServingCompletion
 from vllm.entrypoints.openai.protocol import ChatCompletionRequest, CompletionRequest, ErrorResponse
+from vllm.config import ModelConfig
 
 from utils import DummyRequest, JobInput, BatchSize, create_error_response
 from constants import DEFAULT_MAX_CONCURRENCY, DEFAULT_BATCH_SIZE, DEFAULT_BATCH_SIZE_GROWTH_FACTOR, DEFAULT_MIN_BATCH_SIZE
@@ -124,11 +125,34 @@ class OpenAIvLLMEngine:
         self.raw_openai_output = bool(int(os.getenv("RAW_OPENAI_OUTPUT", 1)))
 
     def _initialize_engines(self):
+        model_config = ModelConfig(
+            model=self.config["model"],
+            tokenizer=self.config["tokenizer"],
+            tokenizer_mode="auto",
+            trust_remote_code=self.config["trust_remote_code"],
+            dtype="auto",
+            seed=self.config.get("seed", 1337),
+            revision=self.config.get("revision", self.config.get("model_revision")),
+            tokenizer_revision=self.config.get("tokenizer_revision"),
+            max_model_len=self.config["max_model_len"],
+            quantization=self.config.get("quantization"),
+            enforce_eager=self.config.get("enforce_eager", False),
+            max_context_len_to_capture=self.config.get("max_context_len_to_capture"),
+            max_seq_len_to_capture=self.config.get("max_seq_len_to_capture"),
+        )
         self.chat_engine = OpenAIServingChat(
-            self.llm, self.served_model_name, self.response_role,
+            engine=self.llm, model_config=model_config,
+            served_model_names=self.served_model_name,
+            response_role=self.response_role,
             chat_template=self.tokenizer.tokenizer.chat_template
         )
-        self.completion_engine = OpenAIServingCompletion(self.llm, self.served_model_name)
+        self.completion_engine = OpenAIServingCompletion(
+            engine=self.llm,
+            model_config=model_config,
+            served_model_names=self.served_model_name,
+            lora_modules=None,
+            prompt_adapters=None
+        )
     
     async def generate(self, openai_request: JobInput):
         if openai_request.openai_route == "/v1/models":
@@ -162,7 +186,7 @@ class OpenAIvLLMEngine:
             yield create_error_response(str(e)).model_dump()
             return
         
-        response_generator = await generator_function(request, DummyRequest())
+        response_generator = await generator_function(request, None)
 
         if not openai_request.openai_input.get("stream") or isinstance(response_generator, ErrorResponse):
             yield response_generator.model_dump()

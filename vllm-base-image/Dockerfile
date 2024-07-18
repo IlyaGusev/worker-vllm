@@ -6,7 +6,7 @@
 ##########################################################
 
 # Define the CUDA version for the build
-ARG WORKER_CUDA_VERSION=11.8.0
+ARG WORKER_CUDA_VERSION=12.1.0
 
 FROM nvidia/cuda:${WORKER_CUDA_VERSION}-devel-ubuntu22.04 AS dev
 
@@ -23,8 +23,10 @@ WORKDIR /vllm-installation
 RUN ldconfig /usr/local/cuda-$(echo "$WORKER_CUDA_VERSION" | sed 's/\.0$//')/compat/
 
 # Install build and runtime dependencies
+COPY vllm/requirements-test.txt requirements-test.txt
+COPY vllm/requirements-lint.txt requirements-lint.txt
 COPY vllm/requirements-common.txt requirements-common.txt
-COPY vllm/requirements-cuda${WORKER_CUDA_VERSION}.txt  requirements-cuda.txt
+COPY vllm/requirements-cuda.txt  requirements-cuda.txt
 RUN --mount=type=cache,target=/root/.cache/pip \
     pip install -r requirements-cuda.txt
 
@@ -55,7 +57,7 @@ COPY vllm/setup.py setup.py
 COPY vllm/cmake cmake
 COPY vllm/CMakeLists.txt CMakeLists.txt
 COPY vllm/requirements-common.txt requirements-common.txt
-COPY vllm/requirements-cuda${WORKER_CUDA_VERSION}.txt requirements-cuda.txt
+COPY vllm/requirements-cuda.txt requirements-cuda.txt
 COPY vllm/pyproject.toml pyproject.toml
 COPY vllm/vllm vllm 
 
@@ -124,17 +126,20 @@ RUN ldconfig /usr/local/cuda-$(echo "$WORKER_CUDA_VERSION" | sed 's/\.0$//')/com
 
 RUN --mount=type=bind,from=build,src=/vllm-installation/dist,target=/vllm-workspace/dist \
     --mount=type=cache,target=/root/.cache/pip \
-    pip install dist/*.whl --verbose
+    MAX_JOBS=4 pip install dist/*.whl --verbose
 
 RUN --mount=type=bind,from=flash-attn-builder,src=/usr/src/flash-attention-v2,target=/usr/src/flash-attention-v2 \
     --mount=type=cache,target=/root/.cache/pip \
-    pip install /usr/src/flash-attention-v2/*.whl --no-cache-dir
+    MAX_JOBS=4 pip install /usr/src/flash-attention-v2/*.whl --no-cache-dir
 
 FROM vllm-base AS runtime
 
 # install additional dependencies for openai api server
 RUN --mount=type=cache,target=/root/.cache/pip \
-    pip install accelerate hf_transfer modelscope tensorizer
+    MAX_JOBS=4 pip install accelerate hf_transfer modelscope tensorizer
+
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install flashinfer -i https://flashinfer.ai/whl/cu121/torch2.3
 
 # Set PYTHONPATH environment variable
 ENV PYTHONPATH="/"

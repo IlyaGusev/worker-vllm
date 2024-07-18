@@ -1,6 +1,6 @@
 ARG WORKER_CUDA_VERSION=11.8.0
 ARG BASE_IMAGE_VERSION=1.0.0
-FROM runpod/worker-vllm:base-${BASE_IMAGE_VERSION}-cuda${WORKER_CUDA_VERSION} AS vllm-base
+FROM phoenix120/worker-vllm:base-1.1.0-cuda12.1.0-flashinfer AS vllm-base
 
 RUN apt-get update -y \
     && apt-get install -y python3-pip
@@ -18,6 +18,7 @@ ARG BASE_PATH="/runpod-volume"
 ARG QUANTIZATION=""
 ARG MODEL_REVISION=""
 ARG TOKENIZER_REVISION=""
+ARG VLLM_ATTENTION_BACKEND=""
 
 ENV MODEL_NAME=$MODEL_NAME \
     MODEL_REVISION=$MODEL_REVISION \
@@ -25,6 +26,7 @@ ENV MODEL_NAME=$MODEL_NAME \
     TOKENIZER_REVISION=$TOKENIZER_REVISION \
     BASE_PATH=$BASE_PATH \
     QUANTIZATION=$QUANTIZATION \
+    VLLM_ATTENTION_BACKEND=$VLLM_ATTENTION_BACKEND \
     HF_DATASETS_CACHE="${BASE_PATH}/huggingface-cache/datasets" \
     HUGGINGFACE_HUB_CACHE="${BASE_PATH}/huggingface-cache/hub" \
     HF_HOME="${BASE_PATH}/huggingface-cache/hub" \
