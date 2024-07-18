@@ -52,14 +52,14 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 RUN apt-get update -y && apt-get install -y ccache
 
 # Copy necessary files
-COPY vllm/csrc csrc
+COPY vllm/csrc  csrc
 COPY vllm/setup.py setup.py
 COPY vllm/cmake cmake
 COPY vllm/CMakeLists.txt CMakeLists.txt
 COPY vllm/requirements-common.txt requirements-common.txt
 COPY vllm/requirements-cuda.txt requirements-cuda.txt
+COPY vllm/vllm vllm
 COPY vllm/pyproject.toml pyproject.toml
-COPY vllm/vllm vllm 
 
 # Set environment variables for building extensions
 ENV WORKER_CUDA_VERSION=${WORKER_CUDA_VERSION}
@@ -126,17 +126,17 @@ RUN ldconfig /usr/local/cuda-$(echo "$WORKER_CUDA_VERSION" | sed 's/\.0$//')/com
 
 RUN --mount=type=bind,from=build,src=/vllm-installation/dist,target=/vllm-workspace/dist \
     --mount=type=cache,target=/root/.cache/pip \
-    MAX_JOBS=4 pip install dist/*.whl --verbose
+    MAX_JOBS=16 pip install dist/*.whl --verbose
 
 RUN --mount=type=bind,from=flash-attn-builder,src=/usr/src/flash-attention-v2,target=/usr/src/flash-attention-v2 \
     --mount=type=cache,target=/root/.cache/pip \
-    MAX_JOBS=4 pip install /usr/src/flash-attention-v2/*.whl --no-cache-dir
+    MAX_JOBS=16 pip install /usr/src/flash-attention-v2/*.whl --no-cache-dir
 
 FROM vllm-base AS runtime
 
 # install additional dependencies for openai api server
 RUN --mount=type=cache,target=/root/.cache/pip \
-    MAX_JOBS=4 pip install accelerate hf_transfer modelscope tensorizer
+    MAX_JOBS=16 pip install accelerate hf_transfer modelscope tensorizer
 
 RUN --mount=type=cache,target=/root/.cache/pip \
     pip install flashinfer -i https://flashinfer.ai/whl/cu121/torch2.3

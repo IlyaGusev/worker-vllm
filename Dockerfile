@@ -1,6 +1,6 @@
 ARG WORKER_CUDA_VERSION=11.8.0
 ARG BASE_IMAGE_VERSION=1.0.0
-FROM phoenix120/worker-vllm:base-1.1.0-cuda12.1.0-flashinfer AS vllm-base
+FROM phoenix120/worker-vllm:base-1.2.0-cuda12.1.0-flashinfer AS vllm-base
 
 RUN apt-get update -y \
     && apt-get install -y python3-pip
